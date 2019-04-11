@@ -20,6 +20,10 @@
 -->
 # Release Notes
 
+### 3.1.1
+* Added handling for iPhone X (WKWebView only)
+* added `statusbarhidden` switch
+
 ### 3.1.0-dev (Unreleased)
 * CB-7179 (iOS): Add support to optionally use WKWebView for iOS
 
