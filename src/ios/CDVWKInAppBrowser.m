@@ -258,7 +258,9 @@ static CDVWKInAppBrowser* instance = nil;
     _waitForBeforeload = ![_beforeload isEqualToString:@""];
     
     [self.inAppBrowserViewController navigateTo:url];
-    [self show:nil withNoAnimate:browserOptions.hidden];
+    if (!browserOptions.hidden) {
+        [self show:nil withNoAnimate:browserOptions.hidden];
+    }
 }
 
 - (void)show:(CDVInvokedUrlCommand*)command{
@@ -291,25 +293,26 @@ static CDVWKInAppBrowser* instance = nil;
     nav.navigationBarHidden = YES;
     nav.modalPresentationStyle = self.inAppBrowserViewController.modalPresentationStyle;
     
-    __weak CDVWKInAppBrowser* weakSelf = self;
+    __block __typeof(self) selfPtr = self;
     
     // Run later to avoid the "took a long time" log message.
     dispatch_async(dispatch_get_main_queue(), ^{
-        if (weakSelf.inAppBrowserViewController != nil) {
+        if (selfPtr.inAppBrowserViewController != nil) {
             float osVersion = [[[UIDevice currentDevice] systemVersion] floatValue];
-            CGRect frame = [[UIScreen mainScreen] bounds];
-            if(initHidden && osVersion < 11){
-                frame.origin.x = -10000;
+            if (!selfPtr->tmpWindow) {
+                CGRect frame = [[UIScreen mainScreen] bounds];
+                if(initHidden && osVersion < 11){
+                   frame.origin.x = -10000;
+                }
+                selfPtr->tmpWindow = [[UIWindow alloc] initWithFrame:frame];
             }
-            
-            UIWindow *tmpWindow = [[UIWindow alloc] initWithFrame:frame];
             UIViewController *tmpController = [[UIViewController alloc] init];
-            
-            [tmpWindow setRootViewController:tmpController];
-            [tmpWindow setWindowLevel:UIWindowLevelNormal];
-            
+
+            [selfPtr->tmpWindow setRootViewController:tmpController];
+            [selfPtr->tmpWindow setWindowLevel:UIWindowLevelNormal];
+
             if(!initHidden || osVersion < 11){
-            [tmpWindow makeKeyAndVisible];
+                [selfPtr->tmpWindow makeKeyAndVisible];
             }
             [tmpController presentViewController:nav animated:!noAnimate completion:nil];
         }
@@ -318,19 +321,19 @@ static CDVWKInAppBrowser* instance = nil;
 
 - (void)hide:(CDVInvokedUrlCommand*)command
 {
+    // Set tmpWindow to hidden to make main webview responsive to touch again
+    // https://stackoverflow.com/questions/4544489/how-to-remove-a-uiwindow
+    self->tmpWindow.hidden = YES;
+
     if (self.inAppBrowserViewController == nil) {
         NSLog(@"Tried to hide IAB after it was closed.");
         return;
-        
-        
     }
     if (_previousStatusBarStyle == -1) {
         NSLog(@"Tried to hide IAB while already hidden");
         return;
     }
-    
     _previousStatusBarStyle = [UIApplication sharedApplication].statusBarStyle;
-    
     // Run later to avoid the "took a long time" log message.
     dispatch_async(dispatch_get_main_queue(), ^{
         if (self.inAppBrowserViewController != nil) {
@@ -674,6 +677,10 @@ static CDVWKInAppBrowser* instance = nil;
     self.inAppBrowserViewController.navigationDelegate = nil;
     self.inAppBrowserViewController = nil;
     
+    // Set tmpWindow to hidden to make main webview responsive to touch again
+    // Based on https://stackoverflow.com/questions/4544489/how-to-remove-a-uiwindow
+    self->tmpWindow.hidden = YES;
+
 #if __IPHONE_OS_VERSION_MAX_ALLOWED < 90000
     if (IsAtLeastiOSVersion(@"7.0")) {
         if (_previousStatusBarStyle != -1) {
@@ -741,7 +748,7 @@ BOOL isExiting = NO;
     
     CGRect webViewBounds = CGRectMake(0, 0, frame.size.width, frame.size.height);
     webViewBounds.size.height -= _browserOptions.location ? FOOTER_HEIGHT : TOOLBAR_HEIGHT;
-    [self createWebViewWithFrame:webViewBounds];
+    [self createWebViewWithFrame:webViewBounds];    
     
     CGPoint origin = CGPointMake(CGRectGetMidX(self.containerView.bounds), CGRectGetMidY(self.containerView.bounds));
     [self createSpinnerWithOrigin:origin];
