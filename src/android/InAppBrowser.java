@@ -148,6 +148,7 @@ public class InAppBrowser extends CordovaPlugin {
     private String footerColor = "";
     private String beforeload = "";
     private String[] allowedSchemes;
+    private InAppBrowserClient currentClient;
 
     /**
      * Executes the request and returns PluginResult.
@@ -264,7 +265,12 @@ public class InAppBrowser extends CordovaPlugin {
                 @SuppressLint("NewApi")
                 @Override
                 public void run() {
-                    ((InAppBrowserClient)inAppWebView.getWebViewClient()).waitForBeforeload = false;
+                    if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.O) {
+                        currentClient.waitForBeforeload = false;
+                        inAppWebView.setWebViewClient(currentClient);
+                    } else {
+                        ((InAppBrowserClient)inAppWebView.getWebViewClient()).waitForBeforeload = false;
+                    }
                     inAppWebView.loadUrl(url);
                 }
             });
@@ -307,7 +313,9 @@ public class InAppBrowser extends CordovaPlugin {
             this.cordova.getActivity().runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
-                    dialog.show();
+                    if (dialog != null) {
+                        dialog.show();
+                    }
                 }
             });
             PluginResult pluginResult = new PluginResult(PluginResult.Status.OK);
@@ -318,7 +326,9 @@ public class InAppBrowser extends CordovaPlugin {
             this.cordova.getActivity().runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
-                    dialog.hide();
+                    if (dialog != null) {
+                        dialog.hide();
+                    }
                 }
             });
             PluginResult pluginResult = new PluginResult(PluginResult.Status.OK);
@@ -431,7 +441,7 @@ public class InAppBrowser extends CordovaPlugin {
                 if (option.hasMoreElements()) {
                     String key = option.nextToken();
                     String value = option.nextToken();
-                    if (!customizableOptions.contains(key)){
+                    if (!customizableOptions.contains(key)) {
                         value = value.equals("yes") || value.equals("no") ? value : "yes";
                     }
                     map.put(key, value);
@@ -610,7 +620,7 @@ public class InAppBrowser extends CordovaPlugin {
         return this.showLocationBar;
     }
 
-    private InAppBrowser getInAppBrowser(){
+    private InAppBrowser getInAppBrowser() {
         return this;
     }
 
@@ -724,7 +734,7 @@ public class InAppBrowser extends CordovaPlugin {
                 return value;
             }
 
-            private View createCloseButton(int id){
+            private View createCloseButton(int id) {
                 View _close;
                 Resources activityRes = cordova.getActivity().getResources();
 
@@ -900,9 +910,9 @@ public class InAppBrowser extends CordovaPlugin {
                 // Footer
                 RelativeLayout footer = new RelativeLayout(cordova.getActivity());
                 int _footerColor;
-                if(footerColor != ""){
+                if(footerColor != "") {
                     _footerColor = Color.parseColor(footerColor);
-                }else{
+                } else {
                     _footerColor = android.graphics.Color.LTGRAY;
                 }
                 footer.setBackgroundColor(_footerColor);
@@ -964,8 +974,8 @@ public class InAppBrowser extends CordovaPlugin {
                     }
 
                 });
-                WebViewClient client = new InAppBrowserClient(thatWebView, edittext, beforeload);
-                inAppWebView.setWebViewClient(client);
+                currentClient = new InAppBrowserClient(thatWebView, edittext, beforeload);
+                inAppWebView.setWebViewClient(currentClient);
                 WebSettings settings = inAppWebView.getSettings();
                 settings.setJavaScriptEnabled(true);
                 settings.setJavaScriptCanOpenWindowsAutomatically(true);
@@ -1059,12 +1069,14 @@ public class InAppBrowser extends CordovaPlugin {
                 lp.width = WindowManager.LayoutParams.MATCH_PARENT;
                 lp.height = WindowManager.LayoutParams.MATCH_PARENT;
 
-                dialog.setContentView(main);
-                dialog.show();
-                dialog.getWindow().setAttributes(lp);
+                if (dialog != null) {
+                    dialog.setContentView(main);
+                    dialog.show();
+                    dialog.getWindow().setAttributes(lp);
+                }
                 // the goal of openhidden is to load the url and not display it
                 // Show() needs to be called to cause the URL to be loaded
-                if(openWindowHidden) {
+                if (openWindowHidden && dialog != null) {
                     dialog.hide();
                 }
             }
@@ -1200,26 +1212,28 @@ public class InAppBrowser extends CordovaPlugin {
             boolean useBeforeload = false;
             String errorMessage = null;
 
-            if(beforeload.equals("yes")
+            if (beforeload.equals("yes") && method == null) {
+                useBeforeload = true;
+            } else if(beforeload.equals("yes")
                     //TODO handle POST requests then this condition can be removed:
                     && !method.equals("POST"))
             {
                 useBeforeload = true;
-            }else if(beforeload.equals("get") && (method == null || method.equals("GET"))){
+            } else if(beforeload.equals("get") && (method == null || method.equals("GET"))) {
                 useBeforeload = true;
-            }else if(beforeload.equals("post") && (method == null || method.equals("POST"))){
+            } else if(beforeload.equals("post") && (method == null || method.equals("POST"))) {
                 //TODO handle POST requests
                 errorMessage = "beforeload doesn't yet support POST requests";
             }
 
             // On first URL change, initiate JS callback. Only after the beforeload event, continue.
             if (useBeforeload && this.waitForBeforeload) {
-                if(sendBeforeLoad(url, method)){
+                if(sendBeforeLoad(url, method)) {
                     return true;
                 }
             }
 
-            if(errorMessage != null){
+            if(errorMessage != null) {
                 try {
                     LOG.e(LOG_TAG, errorMessage);
                     JSONObject obj = new JSONObject();
@@ -1228,7 +1242,7 @@ public class InAppBrowser extends CordovaPlugin {
                     obj.put("code", -1);
                     obj.put("message", errorMessage);
                     sendUpdate(obj, true, PluginResult.Status.ERROR);
-                }catch(Exception e){
+                } catch(Exception e) {
                     LOG.e(LOG_TAG, "Error sending loaderror for " + url + ": " + e.toString());
                 }
             }
@@ -1314,12 +1328,12 @@ public class InAppBrowser extends CordovaPlugin {
             return override;
         }
 
-        private boolean sendBeforeLoad(String url, String method){
+        private boolean sendBeforeLoad(String url, String method) {
             try {
                 JSONObject obj = new JSONObject();
-                obj.put("type", "beforeload");
+                obj.put("type", BEFORELOAD);
                 obj.put("url", url);
-                if(method != null){
+                if(method != null) {
                     obj.put("method", method);
                 }
                 sendUpdate(obj, true);
@@ -1357,7 +1371,7 @@ public class InAppBrowser extends CordovaPlugin {
             return shouldInterceptRequest(request.getUrl().toString(), super.shouldInterceptRequest(view, request), request.getMethod());
         }
 
-        public WebResourceResponse shouldInterceptRequest(String url, WebResourceResponse response, String method){
+        public WebResourceResponse shouldInterceptRequest(String url, WebResourceResponse response, String method) {
             return response;
         }
 
@@ -1398,13 +1412,11 @@ public class InAppBrowser extends CordovaPlugin {
             }
         }
 
-
-
         public void onPageFinished(WebView view, String url) {
             super.onPageFinished(view, url);
 
             // Set the namespace for postMessage()
-            if (Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.JELLY_BEAN_MR1){
+            if (Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.JELLY_BEAN_MR1) {
                 injectDeferredObject("window.webkit={messageHandlers:{cordova_iab:cordova_iab}}", null);
             }
 
