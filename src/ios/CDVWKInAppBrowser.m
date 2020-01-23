@@ -294,11 +294,11 @@ static CDVWKInAppBrowser* instance = nil;
     nav.navigationBarHidden = YES;
     nav.modalPresentationStyle = self.inAppBrowserViewController.modalPresentationStyle;
     
-    __block __typeof(self) selfPtr = self;
+    __weak CDVWKInAppBrowser* weakSelf = self;
     
     // Run later to avoid the "took a long time" log message.
     dispatch_async(dispatch_get_main_queue(), ^{
-        if (selfPtr.inAppBrowserViewController != nil) {
+        if (weakSelf.inAppBrowserViewController != nil) {
             float osVersion = [[[UIDevice currentDevice] systemVersion] floatValue];
             __strong __typeof(weakSelf) strongSelf = weakSelf;
             if (!strongSelf->tmpWindow) {
