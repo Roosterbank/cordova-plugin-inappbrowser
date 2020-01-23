@@ -294,11 +294,11 @@ static CDVWKInAppBrowser* instance = nil;
     nav.navigationBarHidden = YES;
     nav.modalPresentationStyle = self.inAppBrowserViewController.modalPresentationStyle;
     
-    __weak CDVWKInAppBrowser* weakSelf = self;
+    __block __typeof(self) selfPtr = self;
     
     // Run later to avoid the "took a long time" log message.
     dispatch_async(dispatch_get_main_queue(), ^{
-        if (weakSelf.inAppBrowserViewController != nil) {
+        if (selfPtr.inAppBrowserViewController != nil) {
             float osVersion = [[[UIDevice currentDevice] systemVersion] floatValue];
             __strong __typeof(weakSelf) strongSelf = weakSelf;
             if (!strongSelf->tmpWindow) {
@@ -330,16 +330,12 @@ static CDVWKInAppBrowser* instance = nil;
     if (self.inAppBrowserViewController == nil) {
         NSLog(@"Tried to hide IAB after it was closed.");
         return;
-        
-        
     }
     if (_previousStatusBarStyle == -1) {
         NSLog(@"Tried to hide IAB while already hidden");
         return;
     }
-    
     _previousStatusBarStyle = [UIApplication sharedApplication].statusBarStyle;
-    
     // Run later to avoid the "took a long time" log message.
     dispatch_async(dispatch_get_main_queue(), ^{
         if (self.inAppBrowserViewController != nil) {
@@ -687,6 +683,10 @@ static CDVWKInAppBrowser* instance = nil;
     // Based on https://stackoverflow.com/questions/4544489/how-to-remove-a-uiwindow
     self->tmpWindow.hidden = YES;
     
+    // Set tmpWindow to hidden to make main webview responsive to touch again
+    // Based on https://stackoverflow.com/questions/4544489/how-to-remove-a-uiwindow
+    self->tmpWindow.hidden = YES;
+
 #if __IPHONE_OS_VERSION_MAX_ALLOWED < 90000
     if (IsAtLeastiOSVersion(@"7.0")) {
         if (_previousStatusBarStyle != -1) {
@@ -754,7 +754,7 @@ BOOL isExiting = NO;
     
     CGRect webViewBounds = CGRectMake(0, 0, frame.size.width, frame.size.height);
     webViewBounds.size.height -= _browserOptions.location ? FOOTER_HEIGHT : TOOLBAR_HEIGHT;
-    [self createWebViewWithFrame:webViewBounds];
+    [self createWebViewWithFrame:webViewBounds];    
     
     CGPoint origin = CGPointMake(CGRectGetMidX(self.containerView.bounds), CGRectGetMidY(self.containerView.bounds));
     [self createSpinnerWithOrigin:origin];
